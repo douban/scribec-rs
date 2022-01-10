@@ -1,11 +1,10 @@
 use std::io;
 
 use argh::FromArgs;
-use thrift::protocol::{TBinaryInputProtocol, TBinaryOutputProtocol};
-use thrift::transport::{TFramedReadTransport, TFramedWriteTransport, TIoChannel, TTcpChannel};
 
-use scribec::fb303::{Fb303Status, TBaseServiceSyncClient};
-use scribec::scribe::{LogEntry, ScribeSyncClient, TScribeSyncClient};
+use scribec::fb303::Fb303Status;
+use scribec::scribe::LogEntry;
+use scribec::client::ScribeClient;
 
 #[derive(FromArgs, PartialEq, Debug)]
 #[argh(description = "scribe client commands")]
@@ -56,15 +55,7 @@ struct SubCommandAdmin {
 
 fn main() {
     let args: ClientArgs = argh::from_env();
-
-    let mut c = TTcpChannel::new();
-    c.open(format!("{}:{}", args.host, args.port)).unwrap();
-    let (i_chan, o_chan) = c.split().unwrap();
-
-    let i_prot = TBinaryInputProtocol::new(TFramedReadTransport::new(i_chan), false);
-    let o_prot = TBinaryOutputProtocol::new(TFramedWriteTransport::new(o_chan), false);
-
-    let mut client = ScribeSyncClient::new(i_prot, o_prot);
+    let mut client = ScribeClient::new(args.host, args.port);
 
     match args.subcommand {
         ScribeSubCommandEnum::Cat(cat) => {
@@ -86,17 +77,28 @@ fn main() {
             client.log(logs).unwrap();
         },
         ScribeSubCommandEnum::Admin(admin) => match admin.command.as_str() {
-            "alive" | "status" => {
+            "alive" => {
+                let res = client.alive_since().unwrap();
+                println!("{}", res);
+            }
+            "status" => {
+                let mut msg = String::new();
                 let res = client.get_status().unwrap();
                 match res {
-                    Fb303Status::DEAD => println!("DEAD"),
-                    Fb303Status::STARTING => println!("STARTING"),
-                    Fb303Status::ALIVE => println!("ALIVE"),
-                    Fb303Status::STOPPING => println!("STOPPING"),
-                    Fb303Status::STOPPED => println!("STOPPED"),
-                    Fb303Status::WARNING => println!("WARNING"),
-                    _ => println!("UNKNOWN"),
+                    Fb303Status::DEAD => msg.push_str("DEAD"),
+                    Fb303Status::ALIVE => msg.push_str("ALIVE"),
+                    Fb303Status::STARTING => msg.push_str("STARTING"),
+                    Fb303Status::STOPPING => msg.push_str("STOPPING"),
+                    Fb303Status::STOPPED => msg.push_str("STOPPED"),
+                    Fb303Status::WARNING => msg.push_str("WARNING"),
+                    _ => msg.push_str("UNKNOWN"),
                 }
+                let detail = client.get_status_details().unwrap();
+                if detail.len() > 0 {
+                    msg.push_str(" - ");
+                    msg.push_str(&detail);
+                }
+                println!("{}", msg);
             }
             "counters" => {
                 let res = client.get_counters().unwrap();

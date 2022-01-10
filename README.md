@@ -14,5 +14,5 @@ tail -f /var/log/nginx/access.log | scribec std_logger access_log
 
 todos
 ---
-- [ ] client library
 - [ ] reconnect on failure
+- [ ] std logger read bulk
