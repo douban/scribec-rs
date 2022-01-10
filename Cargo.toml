@@ -11,9 +11,9 @@ categories = ["command-line-utilities", "filesystem"]
 
 [[bin]]
 name = "scribec"
-path = "src/scribec/main.rs"
+path = "src/cmd/main.rs"
 
 [dependencies]
-anyhow = "1.0"
-thrift = "0.15.0"
+# anyhow = "1.0"
 argh = "0.1.7"
+thrift = "0.15.0"
